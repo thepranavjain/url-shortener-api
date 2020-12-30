@@ -4,6 +4,7 @@ const cors = require("cors");
 const app = express();
 const bodyParser = require("body-parser");
 const mysql = require("mysql");
+const { lookup } = require("dns").promises;
 const { promisify } = require("util");
 
 // Basic Configuration
@@ -54,10 +55,16 @@ app.post("/api/shorturl/new", async (req, res) => {
     url = url.trim();
     if (!urlRegex.test(url)) throw new Error();
 
+    // dns lookup before storing url
+    // replace http or https before doing the dns lookup
+    // this will throw an error if the url is not found
+    await lookup(url.replace(/^https?:\/\//,''));
+
     // Check if url already exists in the db
     const queryUrlExistsAlready = `SELECT * FROM url.short_urls WHERE url = ?;`;
     let results = await query(queryUrlExistsAlready, [url]);
     if (results.length === 0) {
+      
       const queryCreateShortUrl = `INSERT INTO url.short_urls (url) VALUES (?);`;
       await query(queryCreateShortUrl, [url]);
       results = await query(queryUrlExistsAlready, [url]);
@@ -66,7 +73,7 @@ app.post("/api/shorturl/new", async (req, res) => {
     const { _id } = results[0];
     res.json({ original_url: url, short_url: _id });
   } catch (err) {
-    console.error(err);
+    console.error("Error thrown", err);
     res.status(400);
     res.json({ error: "invalid url" });
   }
