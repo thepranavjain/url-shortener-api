@@ -4,6 +4,7 @@ const cors = require("cors");
 const app = express();
 const bodyParser = require("body-parser");
 const mysql = require("mysql");
+const urlPkg = require("url");
 const { lookup } = require("dns").promises;
 const { promisify } = require("util");
 
@@ -42,23 +43,19 @@ app.get("/api/hello", (req, res) => {
   res.json({ greeting: "hello API" });
 });
 
-// URL Regex source - https://stackoverflow.com/a/3809435
-const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
-
 app.post("/api/shorturl/new", async (req, res) => {
   try {
     let { url } = req.body;
 
-    console.log({ url });
     // Validate url
     if (typeof url !== "string") throw new Error();
     url = url.trim();
-    if (!urlRegex.test(url)) throw new Error();
+    const urlObj = new urlPkg.URL(url);
 
     // dns lookup before storing url
     // replace http or https before doing the dns lookup
     // this will throw an error if the url is not found
-    await lookup(url.replace(/^https?:\/\//,''));
+    await lookup(urlObj.host);
 
     // Check if url already exists in the db
     const queryUrlExistsAlready = `SELECT * FROM url.short_urls WHERE url = ?;`;
@@ -69,7 +66,6 @@ app.post("/api/shorturl/new", async (req, res) => {
       await query(queryCreateShortUrl, [url]);
       results = await query(queryUrlExistsAlready, [url]);
     }
-    console.log({ results });
     const { _id } = results[0];
     res.json({ original_url: url, short_url: _id });
   } catch (err) {
