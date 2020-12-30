@@ -72,7 +72,6 @@ app.post("/api/shorturl/new", async (req, res) => {
     const { _id } = results[0];
     res.json({ original_url: url, short_url: _id });
   } catch (err) {
-    console.error("Error thrown", err);
     res.json({ error: "invalid url" });
   }
 });
