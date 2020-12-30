@@ -43,6 +43,9 @@ app.get("/api/hello", (req, res) => {
   res.json({ greeting: "hello API" });
 });
 
+// URL Regex source - https://stackoverflow.com/a/3809435
+const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
+
 app.post("/api/shorturl/new", async (req, res) => {
   try {
     let { url } = req.body;
@@ -50,6 +53,7 @@ app.post("/api/shorturl/new", async (req, res) => {
     // Validate url
     if (typeof url !== "string") throw new Error();
     url = url.trim();
+    if (!urlRegex.test(url)) throw new Error();
     const urlObj = new urlPkg.URL(url);
 
     // dns lookup before storing url
@@ -61,7 +65,6 @@ app.post("/api/shorturl/new", async (req, res) => {
     const queryUrlExistsAlready = `SELECT * FROM url.short_urls WHERE url = ?;`;
     let results = await query(queryUrlExistsAlready, [url]);
     if (results.length === 0) {
-      
       const queryCreateShortUrl = `INSERT INTO url.short_urls (url) VALUES (?);`;
       await query(queryCreateShortUrl, [url]);
       results = await query(queryUrlExistsAlready, [url]);
