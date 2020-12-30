@@ -80,14 +80,16 @@ app.post("/api/shorturl/new", async (req, res) => {
 app.get("/api/shorturl/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    if (isNaN(id)) throw new Error();
+    if (isNaN(id)) throw new Error("Wrong format");
     const queryGetShortUrl = `SELECT * FROM url.short_urls WHERE _id = ?;`;
     let results = await query(queryGetShortUrl, [id]);
-    if (results.length === 0) throw new Error();
+    if (results.length === 0) throw new Error("not found");
     const { url } = results[0];
     res.redirect(url);
   } catch (err) {
-    res.json({ error: "No short URL found for the given input" });
+    if (err.message === "not found")
+      res.json({ error: "No short URL found for the given input" });
+    else res.json({ error: "Wrong format" });
   }
 });
 
