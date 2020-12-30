@@ -88,7 +88,7 @@ app.get("/api/shorturl/:id", async (req, res) => {
   } catch (err) {
     if (err.message === "not found")
       res.json({ error: "No short URL found for the given input" });
-    else res.json({ error: "Wrong format" });
+    else res.status(304).json({ error: "Wrong format" });
   }
 });
 
