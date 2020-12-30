@@ -73,7 +73,6 @@ app.post("/api/shorturl/new", async (req, res) => {
     res.json({ original_url: url, short_url: _id });
   } catch (err) {
     console.error("Error thrown", err);
-    res.status(400);
     res.json({ error: "invalid url" });
   }
 });
@@ -88,7 +87,6 @@ app.get("/api/shorturl/:id", async (req, res) => {
     const { url } = results[0];
     res.redirect(url);
   } catch (err) {
-    res.status(404);
     res.json({ message: "No short URL found for the given input" });
   }
 });
