@@ -1,24 +1,92 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
 const app = express();
+const bodyParser = require("body-parser");
+const mysql = require("mysql");
+const { promisify } = require("util");
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
+const db = mysql.createConnection({
+  host: process.env.MYSQL_HOST,
+  port: process.env.MYSQL_PORT,
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
+});
+db.connect((err, args) => {
+  if (err) {
+    console.error(err.message);
+    throw err;
+  }
+  console.log(`Connected to MySQL Database`);
+});
+
+const query = promisify(db.query).bind(db);
+
 app.use(cors());
 
-app.use('/public', express.static(`${process.cwd()}/public`));
+app.use(bodyParser.urlencoded({ extended: false }));
 
-app.get('/', function(req, res) {
-  res.sendFile(process.cwd() + '/views/index.html');
+app.use("/public", express.static(`${process.cwd()}/public`));
+
+app.get("/", (req, res) => {
+  res.sendFile(process.cwd() + "/views/index.html");
 });
 
 // Your first API endpoint
-app.get('/api/hello', function(req, res) {
-  res.json({ greeting: 'hello API' });
+app.get("/api/hello", (req, res) => {
+  res.json({ greeting: "hello API" });
 });
 
-app.listen(port, function() {
+// URL Regex source - https://stackoverflow.com/a/3809435
+const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
+
+app.post("/api/shorturl/new", async (req, res) => {
+  try {
+    let { url } = req.body;
+
+    console.log({ url });
+    // Validate url
+    if (typeof url !== "string") throw new Error();
+    url = url.trim();
+    if (!urlRegex.test(url)) throw new Error();
+
+    // Check if url already exists in the db
+    const queryUrlExistsAlready = `SELECT * FROM url.short_urls WHERE url = ?;`;
+    let results = await query(queryUrlExistsAlready, [url]);
+    if (results.length === 0) {
+      const queryCreateShortUrl = `INSERT INTO url.short_urls (url) VALUES (?);`;
+      await query(queryCreateShortUrl, [url]);
+      results = await query(queryUrlExistsAlready, [url]);
+    }
+    console.log({ results });
+    const { _id } = results[0];
+    res.json({ original_url: url, short_url: _id });
+  } catch (err) {
+    console.error(err);
+    res.status(400);
+    res.json({ error: "invalid url" });
+  }
+});
+
+app.get("/api/shorturl/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) throw new Error();
+    const queryGetShortUrl = `SELECT * FROM url.short_urls WHERE _id = ?;`;
+    let results = await query(queryGetShortUrl, [id]);
+    if (results.length === 0) throw new Error();
+    const { url } = results[0];
+    res.redirect(url);
+  } catch (err) {
+    res.status(404);
+    res.json({ message: "No short URL found for the given input" });
+  }
+});
+
+app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
